@@ -1,0 +1,254 @@
+{% extends 'social/base.html' %}
+{% load static %}
+
+{% block title %}Users - Midya{% endblock %}
+
+{% block content %}
+<div class="card" style="margin-bottom: 2rem;">
+    <h2 class="card-title">All Users</h2>
+</div>
+
+<div class="grid">
+    {% for user_item in users %}
+    <div class="user-card">
+        <div class="user-info">
+            {% if user_item.profile_picture_url %}
+                <img src="{{ user_item.profile_picture_url }}" alt="{{ user_item.username }}" class="user-avatar">
+            {% else %}
+                <div class="user-avatar"></div>
+            {% endif %}
+            <div class="user-details">
+                <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
+                    <h3><a href="{% url 'user_profile' user_item.id %}" style="color: var(--text-primary); text-decoration: none;">{{ user_item.username }}</a></h3>
+                    {% if user_item.role == 'owner' %}
+                        <span class="role-badge role-owner">Owner</span>
+                    {% elif user_item.role == 'admin' %}
+                        <span class="role-badge role-admin">Admin</span>
+                    {% endif %}
+                </div>
+                <p>{{ user_item.bio|default:"No bio" }}</p>
+                <p style="font-size: 0.75rem; color: var(--text-secondary);">
+                    Followers: {{ user_item.followers_count }} | Following: {{ user_item.following_count }}
+                </p>
+            </div>
+        </div>
+        <div class="user-actions" style="display: flex; flex-direction: column; gap: 0.5rem;">
+            {% if user_item.id != user.id %}
+            <button class="btn btn-small btn-primary" onclick="toggleFollow({{ user_item.id }}, this)">
+                {% if user_item.is_following %}Unfollow{% else %}Follow{% endif %}
+            </button>
+            <button class="btn btn-small btn-danger" onclick="toggleBlock({{ user_item.id }}, this)">
+                {% if user_item.is_blocked %}Unblock{% else %}Block{% endif %}
+            </button>
+            {% endif %}
+            {% if user_item.can_delete %}
+            <button class="btn btn-small btn-danger" onclick="deleteUser({{ user_item.id }})">Delete User</button>
+            {% endif %}
+            {% if user_item.can_make_admin %}
+            <button class="btn btn-small btn-primary" onclick="makeAdmin({{ user_item.id }}, this)">
+                {% if user_item.role == 'admin' %}Remove Admin{% else %}Make Admin{% endif %}
+            </button>
+            {% endif %}
+        </div>
+    </div>
+    {% empty %}
+    <div class="card">
+        <p style="color: var(--text-secondary); text-align: center;">No users found.</p>
+    </div>
+    {% endfor %}
+</div>
+
+<script>
+function toggleFollow(userId, btn) {
+    const isFollowing = btn.textContent.trim() === 'Unfollow';
+    const url = `/api/follows/`;
+    const method = isFollowing ? 'DELETE' : 'POST';
+    
+    let fetchOptions = {
+        method: method,
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': '{{ csrf_token }}',
+        },
+        credentials: 'same-origin'
+    };
+    
+    if (method === 'POST') {
+        fetchOptions.body = JSON.stringify({ following_id: userId });
+    } else {
+        // For DELETE, we need to get the follow ID first
+        fetch(`/api/follows/`, {
+            method: 'GET',
+            headers: {
+                'X-CSRFToken': '{{ csrf_token }}',
+            },
+            credentials: 'same-origin'
+        })
+        .then(response => response.json())
+        .then(data => {
+            const follow = data.results?.find(f => f.following_id === userId);
+            if (follow) {
+                return fetch(`/api/follows/${follow.id}/`, {
+                    method: 'DELETE',
+                    headers: {
+                        'X-CSRFToken': '{{ csrf_token }}',
+                    },
+                    credentials: 'same-origin'
+                });
+            }
+        })
+        .then(() => {
+            btn.textContent = 'Follow';
+        })
+        .catch(error => console.error('Error:', error));
+        return;
+    }
+    
+    fetch(url, fetchOptions)
+    .then(response => response.json())
+    .then(data => {
+        btn.textContent = isFollowing ? 'Follow' : 'Unfollow';
+        location.reload();
+    })
+    .catch(error => console.error('Error:', error));
+}
+
+function toggleBlock(userId, btn) {
+    const isBlocked = btn.textContent.trim() === 'Unblock';
+    const url = `/api/blocks/`;
+    const method = isBlocked ? 'DELETE' : 'POST';
+    
+    let fetchOptions = {
+        method: method,
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': '{{ csrf_token }}',
+        },
+        credentials: 'same-origin'
+    };
+    
+    if (method === 'POST') {
+        fetchOptions.body = JSON.stringify({ blocked_id: userId });
+    } else {
+        fetch(`/api/blocks/`, {
+            method: 'GET',
+            headers: {
+                'X-CSRFToken': '{{ csrf_token }}',
+            },
+            credentials: 'same-origin'
+        })
+        .then(response => response.json())
+        .then(data => {
+            const block = data.results?.find(b => b.blocked_id === userId);
+            if (block) {
+                return fetch(`/api/blocks/${block.id}/`, {
+                    method: 'DELETE',
+                    headers: {
+                        'X-CSRFToken': '{{ csrf_token }}',
+                    },
+                    credentials: 'same-origin'
+                });
+            }
+        })
+        .then(() => {
+            btn.textContent = 'Block';
+            location.reload();
+        })
+        .catch(error => console.error('Error:', error));
+        return;
+    }
+    
+    fetch(url, fetchOptions)
+    .then(response => response.json())
+    .then(data => {
+        btn.textContent = isBlocked ? 'Block' : 'Unblock';
+        location.reload();
+    })
+    .catch(error => console.error('Error:', error));
+}
+
+function deleteUser(userId) {
+    if (!confirm('Are you sure you want to delete this user? This action cannot be undone.')) return;
+    
+    fetch(`/api/auth/users/${userId}/`, {
+        method: 'DELETE',
+        headers: {
+            'X-CSRFToken': '{{ csrf_token }}',
+        },
+        credentials: 'same-origin'
+    })
+    .then(response => {
+        if (response.status === 204) {
+            location.reload();
+        } else {
+            response.json().then(data => alert(data.error || 'Failed to delete user'));
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Failed to delete user');
+    });
+}
+
+function makeAdmin(userId, btn) {
+    const isAdmin = btn.textContent.trim() === 'Remove Admin';
+    const url = `/api/auth/admins/`;
+    
+    if (isAdmin) {
+        // Remove admin
+        fetch(`/api/auth/admins/`, {
+            method: 'GET',
+            headers: {
+                'X-CSRFToken': '{{ csrf_token }}',
+            },
+            credentials: 'same-origin'
+        })
+        .then(response => response.json())
+        .then(data => {
+            const admin = data.results?.find(a => a.id === userId);
+            if (admin) {
+                return fetch(`/api/auth/admins/${admin.id}/`, {
+                    method: 'DELETE',
+                    headers: {
+                        'X-CSRFToken': '{{ csrf_token }}',
+                    },
+                    credentials: 'same-origin'
+                });
+            }
+        })
+        .then(response => {
+            if (response && response.status === 204) {
+                location.reload();
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Failed to remove admin');
+        });
+    } else {
+        // Make admin
+        fetch(url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}',
+            },
+            credentials: 'same-origin',
+            body: JSON.stringify({ user_id: userId })
+        })
+        .then(response => {
+            if (response.status === 201 || response.status === 200) {
+                location.reload();
+            } else {
+                response.json().then(data => alert(data.error || 'Failed to make admin'));
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Failed to make admin');
+        });
+    }
+}
+</script>
+{% endblock %}
+

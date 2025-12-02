@@ -1,0 +1,30 @@
+{% extends 'social/base.html' %}
+
+{% block title %}Create Post - Midya{% endblock %}
+
+{% block content %}
+<div style="max-width: 600px; margin: 2rem auto;">
+    <div class="card">
+        <h2 class="card-title">Create New Post</h2>
+        
+        <form method="post" enctype="multipart/form-data">
+            {% csrf_token %}
+            <div class="form-group">
+                <label class="form-label" for="content">Content</label>
+                <textarea id="content" name="content" class="form-textarea" rows="6" required></textarea>
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label" for="image">Image (Optional)</label>
+                <input type="file" id="image" name="image" class="form-input" accept="image/*">
+            </div>
+            
+            <div style="display: flex; gap: 1rem;">
+                <button type="submit" class="btn btn-primary">Create Post</button>
+                <a href="{% url 'feed' %}" class="btn btn-secondary">Cancel</a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+

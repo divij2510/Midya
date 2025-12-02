@@ -1,0 +1,355 @@
+{% extends 'social/base.html' %}
+{% load static %}
+
+{% block title %}{% if profile_user %}{{ profile_user.username }} - Midya{% else %}Profile - Midya{% endif %}{% endblock %}
+
+{% block content %}
+{% if profile_user %}
+<div style="max-width: 800px; margin: 0 auto;">
+    <div class="card" style="margin-bottom: 2rem;">
+        <div style="display: flex; align-items: center; gap: 2rem;">
+            {% if profile_user.profile_picture_url %}
+                <img src="{{ profile_user.profile_picture_url }}" alt="{{ profile_user.username }}" style="width: 100px; height: 100px; border-radius: 50%; object-fit: cover;">
+            {% else %}
+                <div class="user-avatar" style="width: 100px; height: 100px;"></div>
+            {% endif %}
+            <div>
+                <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
+                    <h2>{{ profile_user.username }}</h2>
+                    {% if profile_user.role == 'owner' %}
+                        <span class="role-badge role-owner">Owner</span>
+                    {% elif profile_user.role == 'admin' %}
+                        <span class="role-badge role-admin">Admin</span>
+                    {% endif %}
+                </div>
+                <p style="color: var(--text-secondary); margin-top: 0.5rem;">{{ profile_user.bio|default:"No bio" }}</p>
+                <div style="display: flex; gap: 2rem; margin-top: 1rem;">
+                    <div>
+                        <strong>{{ profile_user.followers_count }}</strong>
+                        <span style="color: var(--text-secondary);"> Followers</span>
+                    </div>
+                    <div>
+                        <strong>{{ profile_user.following_count }}</strong>
+                        <span style="color: var(--text-secondary);"> Following</span>
+                    </div>
+                    <div>
+                        <strong>{{ profile_user.posts_count }}</strong>
+                        <span style="color: var(--text-secondary);"> Posts</span>
+                    </div>
+                </div>
+                <div style="margin-top: 1rem; display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                    {% if profile_user.id != user.id %}
+                    <button class="btn btn-small btn-primary" onclick="toggleFollow({{ profile_user.id }}, this)">
+                        {% if profile_user.is_following %}Unfollow{% else %}Follow{% endif %}
+                    </button>
+                    <button class="btn btn-small btn-danger" onclick="toggleBlock({{ profile_user.id }}, this)">
+                        {% if profile_user.is_blocked %}Unblock{% else %}Block{% endif %}
+                    </button>
+                    {% endif %}
+                    {% if profile_user.can_delete %}
+                    <button class="btn btn-small btn-danger" onclick="deleteUser({{ profile_user.id }})">Delete User</button>
+                    {% endif %}
+                    {% if profile_user.can_make_admin %}
+                    <button class="btn btn-small btn-primary" onclick="makeAdmin({{ profile_user.id }}, this)">
+                        {% if profile_user.role == 'admin' %}Remove Admin{% else %}Make Admin{% endif %}
+                    </button>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="card" style="margin-bottom: 2rem;">
+        <h3 class="card-title">Posts</h3>
+    </div>
+    
+    {% for post in posts %}
+    <div class="post">
+        <div class="post-header">
+            <div style="display: flex; align-items: center; gap: 1rem; width: 100%; justify-content: space-between;">
+                <div style="display: flex; align-items: center; gap: 1rem;">
+                    {% if post.user_profile_picture_url %}
+                        <img src="{{ post.user_profile_picture_url }}" alt="{{ post.user }}" class="post-avatar">
+                    {% else %}
+                        <div class="post-avatar"></div>
+                    {% endif %}
+                    <div>
+                        <div style="display: flex; align-items: center; gap: 0.5rem;">
+                            <a href="{% url 'user_profile' post.user_id %}" class="post-user">{{ post.user }}</a>
+                            {% if post.user_role == 'owner' %}
+                                <span class="role-badge role-owner">Owner</span>
+                            {% elif post.user_role == 'admin' %}
+                                <span class="role-badge role-admin">Admin</span>
+                            {% endif %}
+                        </div>
+                        <div class="post-time">{{ post.created_at|date:"M d, Y H:i" }}</div>
+                    </div>
+                </div>
+                {% if post.can_delete %}
+                <button class="btn btn-small btn-danger" onclick="deletePost({{ post.id }})">Delete</button>
+                {% endif %}
+            </div>
+        </div>
+        
+        <div class="post-content">{{ post.content }}</div>
+        
+        {% if post.image_url %}
+        <img src="{{ post.image_url }}" alt="Post image" class="post-image">
+        {% endif %}
+        
+        <div class="post-actions">
+            <button class="post-action-btn {% if post.is_liked %}liked{% endif %}" 
+                    onclick="toggleLike({{ post.id }}, this)">
+                <span>❤️</span>
+                <span>{{ post.likes_count }}</span>
+            </button>
+        </div>
+    </div>
+    {% empty %}
+    <div class="card">
+        <p style="color: var(--text-secondary); text-align: center;">No posts yet.</p>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="card">
+    <p style="color: var(--text-secondary); text-align: center;">User not found.</p>
+</div>
+{% endif %}
+
+<script>
+function toggleLike(postId, btn) {
+    const isLiked = btn.classList.contains('liked');
+    const url = `/api/posts/${postId}/like/`;
+    const method = isLiked ? 'DELETE' : 'POST';
+    
+    fetch(url, {
+        method: method,
+        headers: {
+            'X-CSRFToken': '{{ csrf_token }}',
+        },
+        credentials: 'same-origin'
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (method === 'POST') {
+            btn.classList.add('liked');
+            const countSpan = btn.querySelector('span:last-child');
+            countSpan.textContent = parseInt(countSpan.textContent) + 1;
+        } else {
+            btn.classList.remove('liked');
+            const countSpan = btn.querySelector('span:last-child');
+            countSpan.textContent = parseInt(countSpan.textContent) - 1;
+        }
+    })
+    .catch(error => console.error('Error:', error));
+}
+
+function toggleFollow(userId, btn) {
+    const isFollowing = btn.textContent.trim() === 'Unfollow';
+    const url = `/api/follows/`;
+    const method = isFollowing ? 'DELETE' : 'POST';
+    
+    if (method === 'POST') {
+        fetch(url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}',
+            },
+            credentials: 'same-origin',
+            body: JSON.stringify({ following_id: userId })
+        })
+        .then(response => response.json())
+        .then(data => {
+            btn.textContent = 'Unfollow';
+            location.reload();
+        })
+        .catch(error => console.error('Error:', error));
+    } else {
+        fetch(`/api/follows/`, {
+            method: 'GET',
+            headers: {
+                'X-CSRFToken': '{{ csrf_token }}',
+            },
+            credentials: 'same-origin'
+        })
+        .then(response => response.json())
+        .then(data => {
+            const follow = data.results?.find(f => f.following_id === userId);
+            if (follow) {
+                return fetch(`/api/follows/${follow.id}/`, {
+                    method: 'DELETE',
+                    headers: {
+                        'X-CSRFToken': '{{ csrf_token }}',
+                    },
+                    credentials: 'same-origin'
+                });
+            }
+        })
+        .then(() => {
+            btn.textContent = 'Follow';
+            location.reload();
+        })
+        .catch(error => console.error('Error:', error));
+    }
+}
+
+function toggleBlock(userId, btn) {
+    const isBlocked = btn.textContent.trim() === 'Unblock';
+    const url = `/api/blocks/`;
+    const method = isBlocked ? 'DELETE' : 'POST';
+    
+    if (method === 'POST') {
+        fetch(url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}',
+            },
+            credentials: 'same-origin',
+            body: JSON.stringify({ blocked_id: userId })
+        })
+        .then(response => response.json())
+        .then(data => {
+            btn.textContent = 'Unblock';
+            location.reload();
+        })
+        .catch(error => console.error('Error:', error));
+    } else {
+        fetch(`/api/blocks/`, {
+            method: 'GET',
+            headers: {
+                'X-CSRFToken': '{{ csrf_token }}',
+            },
+            credentials: 'same-origin'
+        })
+        .then(response => response.json())
+        .then(data => {
+            const block = data.results?.find(b => b.blocked_id === userId);
+            if (block) {
+                return fetch(`/api/blocks/${block.id}/`, {
+                    method: 'DELETE',
+                    headers: {
+                        'X-CSRFToken': '{{ csrf_token }}',
+                    },
+                    credentials: 'same-origin'
+                });
+            }
+        })
+        .then(() => {
+            btn.textContent = 'Block';
+            location.reload();
+        })
+        .catch(error => console.error('Error:', error));
+    }
+}
+
+function deletePost(postId) {
+    if (!confirm('Are you sure you want to delete this post?')) return;
+    
+    fetch(`/api/posts/${postId}/`, {
+        method: 'DELETE',
+        headers: {
+            'X-CSRFToken': '{{ csrf_token }}',
+        },
+        credentials: 'same-origin'
+    })
+    .then(response => {
+        if (response.status === 204) {
+            location.reload();
+        } else {
+            alert('Failed to delete post');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Failed to delete post');
+    });
+}
+
+function deleteUser(userId) {
+    if (!confirm('Are you sure you want to delete this user? This action cannot be undone.')) return;
+    
+    fetch(`/api/auth/users/${userId}/`, {
+        method: 'DELETE',
+        headers: {
+            'X-CSRFToken': '{{ csrf_token }}',
+        },
+        credentials: 'same-origin'
+    })
+    .then(response => {
+        if (response.status === 204) {
+            window.location.href = '{% url "users_list" %}';
+        } else {
+            response.json().then(data => alert(data.error || 'Failed to delete user'));
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Failed to delete user');
+    });
+}
+
+function makeAdmin(userId, btn) {
+    const isAdmin = btn.textContent.trim() === 'Remove Admin';
+    const url = `/api/auth/admins/`;
+    
+    if (isAdmin) {
+        // Remove admin
+        fetch(`/api/auth/admins/`, {
+            method: 'GET',
+            headers: {
+                'X-CSRFToken': '{{ csrf_token }}',
+            },
+            credentials: 'same-origin'
+        })
+        .then(response => response.json())
+        .then(data => {
+            const admin = data.results?.find(a => a.id === userId);
+            if (admin) {
+                return fetch(`/api/auth/admins/${admin.id}/`, {
+                    method: 'DELETE',
+                    headers: {
+                        'X-CSRFToken': '{{ csrf_token }}',
+                    },
+                    credentials: 'same-origin'
+                });
+            }
+        })
+        .then(response => {
+            if (response && response.status === 204) {
+                location.reload();
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Failed to remove admin');
+        });
+    } else {
+        // Make admin
+        fetch(url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}',
+            },
+            credentials: 'same-origin',
+            body: JSON.stringify({ user_id: userId })
+        })
+        .then(response => {
+            if (response.status === 201 || response.status === 200) {
+                location.reload();
+            } else {
+                response.json().then(data => alert(data.error || 'Failed to make admin'));
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Failed to make admin');
+        });
+    }
+}
+</script>
+{% endblock %}
+
