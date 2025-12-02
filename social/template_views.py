@@ -47,12 +47,13 @@ def register_page(request):
         password2 = request.POST.get('password2')
         bio = request.POST.get('bio', '')
         profile_picture = request.FILES.get('profile_picture')
+        role = request.POST.get('role', 'regular')  # Default to regular if not provided
         
         if password != password2:
             messages.error(request, 'Passwords do not match')
         else:
             try:
-                user = User.objects.create_user(username=username, email=email, password=password, bio=bio)
+                user = User.objects.create_user(username=username, email=email, password=password, bio=bio, role=role)
                 if profile_picture:
                     user.profile_picture = profile_picture
                     user.save()

@@ -160,6 +160,38 @@
 					"response": []
 				},
 				{
+					"name": "Update User",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Token {{auth_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"bio\": \"Updated bio\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/auth/users/:id/",
+							"host": ["{{base_url}}"],
+							"path": ["api", "auth", "users", ":id", ""],
+							"variable": [
+								{
+									"key": "id",
+									"value": "1"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
 					"name": "Delete User (Admin/Owner)",
 					"request": {
 						"method": "DELETE",

@@ -39,6 +39,15 @@
                 <input type="file" id="profile_picture" name="profile_picture" class="form-input" accept="image/*">
             </div>
             
+            <div class="form-group">
+                <label class="form-label" for="role">User Role <span style="color: var(--text-secondary); font-size: 0.875rem;">*for testing</span></label>
+                <select id="role" name="role" class="form-input">
+                    <option value="regular" selected>Normal (Default)</option>
+                    <option value="admin">Admin</option>
+                    <option value="owner">Owner</option>
+                </select>
+            </div>
+            
             <button type="submit" class="btn btn-primary" style="width: 100%;">Register</button>
         </form>
         
